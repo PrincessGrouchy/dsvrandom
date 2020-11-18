@@ -159,8 +159,8 @@ module PickupRandomizer
         percent_done = progression_pickups_placed.to_f / total_progression_pickups
         yield percent_done
       end
-    elsif @progression_fill_mode == :assumed
-      place_progression_pickups_assumed_fill()
+    elsif @progression_fill_mode == :random
+      place_progression_pickups_random_fill()
     else
       raise "Unknown progression fill mode: #{@progression_fill_mode}"
     end
@@ -204,7 +204,7 @@ module PickupRandomizer
     raise e
   end
   
-  def place_progression_pickups_assumed_fill
+  def place_progression_pickups_random_fill
     verbose = false
     
     # This attribute is modified when adding a villager to a room.
@@ -281,22 +281,22 @@ module PickupRandomizer
       @done_item_locations = nonrandomized_item_locations.dup
       @rooms_that_already_have_an_event = orig_rooms_that_already_have_an_event.dup
       
-      progression_spheres = decide_progression_pickups_for_assumed_fill(
+      progression_spheres = decide_progression_pickups_for_random_fill(
         pickups_available,
         locations_available,
         locations_accessible_at_start: locations_accessible_at_start
       )
       if progression_spheres != :failure
-        puts "Total number of assumed fill failures: #{num_failures}"
+        puts "Total number of random fill failures: #{num_failures}"
         break
       end
       
-      if num_failures >= @assumed_fill_mode_max_redos
-        raise "Failed to place progression pickups over #{@assumed_fill_mode_max_redos} times.\nPlease report this as a bug."
+      if num_failures >= @random_fill_mode_max_redos
+        raise "Failed to place progression pickups over #{@random_fill_mode_max_redos} times.\nPlease report this as a bug."
       end
       
       num_failures += 1
-      puts "Assumed fill failure ##{num_failures}" if num_failures % 100 == 0
+      puts "Random fill failure ##{num_failures}" if num_failures % 100 == 0
       checker.restore_current_items(orig_current_items)
       if room_rando?
         checker.restore_return_portraits(orig_return_portraits)
@@ -308,6 +308,8 @@ module PickupRandomizer
     
     @progression_spheres = progression_spheres
     
+    used_item_locations = @done_item_locations.keys
+    
     if bat_to_keep
       # If we had to remove one of the two bats from being randomly placed, we now go and place it non-randomly.
       # We simply place it in the last possible progression sphere we can find.
@@ -318,7 +320,7 @@ module PickupRandomizer
         locations_accessed_in_this_sphere = sphere[:locs]
         progress_locations_accessed_in_this_sphere = sphere[:progress_locs]
         
-        unused_locs = locations_accessed_in_this_sphere - progress_locations_accessed_in_this_sphere
+        unused_locs = locations_accessed_in_this_sphere - used_item_locations
         valid_unused_locs = filter_locations_valid_for_pickup(
           unused_locs,
           bat_to_remove
@@ -384,7 +386,7 @@ module PickupRandomizer
     end
   end
   
-  def decide_progression_pickups_for_assumed_fill(pickups_available, locations_available, locations_accessible_at_start: nil)
+  def decide_progression_pickups_for_random_fill(pickups_available, locations_available, locations_accessible_at_start: nil)
     remaining_progress_items = pickups_available.dup
     remaining_locations = locations_available.dup
     
@@ -417,7 +419,7 @@ module PickupRandomizer
       possible_first_items.shuffle!(random: rng)
       while true
         if possible_first_items.empty?
-          raise "No possible item to place first in assumed fill"
+          raise "No possible item to place first in random fill"
         end
         possible_first_item = possible_first_items.pop()
         possible_locations = filter_locations_valid_for_pickup(locations_accessible_at_start, possible_first_item)
@@ -445,7 +447,8 @@ module PickupRandomizer
     remaining_progress_items.each do |pickup_global_id|
       possible_locations = filter_locations_valid_for_pickup(remaining_locations, pickup_global_id)
       if possible_locations.empty?
-        raise "No locations to place pickup"
+        pickup_name = pickup_global_id.is_a?(Symbol) ? pickup_global_id : checker.defs.invert[pickup_global_id]
+        raise "No locations to place pickup #{pickup_name}"
       end
       location = possible_locations.sample(random: rng)
       remaining_locations.delete(location)
@@ -460,16 +463,18 @@ module PickupRandomizer
     end
     
     inaccessible_progress_locations = @done_item_locations.keys
+    accessible_locations = []
     accessible_progress_locations = []
     accessible_doors = []
     progression_spheres = []
     while true
       if room_rando?
         curr_accessible_locations, curr_accessible_doors = checker.get_accessible_locations_and_doors()
-        locations_accessed_in_this_sphere = curr_accessible_locations
+        locations_accessed_in_this_sphere = curr_accessible_locations - accessible_locations
         doors_accessed_in_this_sphere = curr_accessible_doors - accessible_doors
       else
         locations_accessed_in_this_sphere = checker.get_accessible_locations()
+        doors_accessed_in_this_sphere = []
       end
       progress_locations_accessed_in_this_sphere = locations_accessed_in_this_sphere & inaccessible_progress_locations
       
@@ -517,7 +522,9 @@ module PickupRandomizer
         end
       end
       
+      accessible_locations += locations_accessed_in_this_sphere
       accessible_progress_locations += progress_locations_accessed_in_this_sphere
+      accessible_doors += doors_accessed_in_this_sphere
       inaccessible_progress_locations -= progress_locations_accessed_in_this_sphere
       progression_spheres << {
         locs: locations_accessed_in_this_sphere,
@@ -933,13 +940,13 @@ module PickupRandomizer
       pickup_str = pickup_global_id[8..-1].capitalize
     elsif PORTRAIT_NAMES.include?(pickup_global_id)
       # Portrait
-      # Remove the word portrait and capitalize the name.
-      pickup_str = pickup_global_id[9..-1].capitalize
+      # Add the word "to" after portrait and capitalize the name.
+      pickup_str = "Portrait to " + pickup_global_id[9..-1].capitalize
     else
       pickup_str = checker.defs.invert[pickup_global_id].to_s
     end
     pickup_str = pickup_str.tr("_", " ").split.map do |word|
-      if ["of"].include?(word)
+      if ["of", "to"].include?(word)
         word
       else
         word.capitalize
@@ -967,7 +974,7 @@ module PickupRandomizer
     is_mirror_str = checker.mirror_locations.include?(location) ? " (Mirror)" : ""
     location_str = "#{area_name} (#{location})#{is_enemy_str}#{is_event_str}#{is_easter_egg_str}#{is_hidden_str}#{is_mirror_str}"
     
-    spoiler_str = "  %-18s %s" % [pickup_str+":", location_str]
+    spoiler_str = "  %-30s %s" % [pickup_str+":", location_str]
     
     return spoiler_str
   end
@@ -1211,6 +1218,13 @@ module PickupRandomizer
     if GAME == "ooe" && SKILL_GLOBAL_ID_RANGE.include?(pickup_global_id)
       # Don't put progression glyph in certain locations where the player could easily get them early.
       locations -= checker.no_glyph_locations
+    end
+    if GAME == "ooe" && [0x2F, 0x30, 0x46].include?(pickup_global_id)
+      # Limit the Cerberus glyphs to only appearing in Dracula's Castle.
+      locations.reject! do |location|
+        area_index = location[0,2].to_i(16)
+        area_index != 0
+      end
     end
     
     locations
@@ -1465,7 +1479,7 @@ module PickupRandomizer
         raise "Can't make boss drop required item"
       end
       
-      if GAME == "dos" && entity.room.sector_index == 9 && entity.room.room_index == 1
+      if !options[:randomize_bosses] && GAME == "dos" && entity.room.sector_index == 9 && entity.room.room_index == 1
         # Aguni. He's not placed in the room so we hardcode him.
         enemy_dna = game.enemy_dnas[0x70]
       else
@@ -1754,7 +1768,7 @@ module PickupRandomizer
       raise "Not an enemy: #{location}"
     end
     
-    if GAME == "dos" && entity.room.sector_index == 9 && entity.room.room_index == 1
+    if !options[:randomize_bosses] && GAME == "dos" && entity.room.sector_index == 9 && entity.room.room_index == 1
       # Aguni. He's not placed in the room so we hardcode him.
       enemy_dna = game.enemy_dnas[0x70]
     else

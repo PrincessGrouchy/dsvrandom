@@ -75,7 +75,15 @@ module EnemyRandomizer
         needed_assets_for_enemy <= asset_slots_left
       end
       
+      disallow_spawners = false
       if @num_spawners >= @max_spawners_per_room
+        disallow_spawners = true
+      end
+      if GAME == "por" && @enemy_pool_for_room.include?(0x2E) # Great Ghost, can't be in the same room as spawners
+        disallow_spawners = true
+      end
+      
+      if disallow_spawners
         @allowed_enemies_for_room -= SPAWNER_ENEMY_IDS
         @enemy_pool_for_room -= SPAWNER_ENEMY_IDS
       end
@@ -673,6 +681,11 @@ module EnemyRandomizer
     when "Medusa Head"
       enemy.var_a = rng.rand(1..7) # Max at once
       enemy.var_b = rng.rand(0..1) # Type of Medusa Head
+    when "Procel"
+      if !coll[enemy.x_pos,enemy.y_pos].is_water
+        # Procels don't spawn out of water.
+        return :redo
+      end
     when "Mud Demon"
       enemy.var_b = rng.rand(0..0x50) # Max rand spawn distance
     when "Stolas"
@@ -792,7 +805,7 @@ module EnemyRandomizer
   
   def por_adjust_randomized_enemy(enemy, enemy_dna)
     case enemy_dna.name
-    when "Zombie", "Bat", "Fleaman", "Medusa Head", "Slime", "Tanjelly", "Bone Pillar", "Fish Head", "White Dragon"
+    when "Zombie", "Ghoul", "Bat", "Fleaman", "Medusa Head", "Slime", "Tanjelly", "Bone Pillar", "Fish Head", "White Dragon"
       dos_adjust_randomized_enemy(enemy, enemy_dna)
     when "Hanged Bones", "Skeleton Tree"
       # Try to limit possible buggy positions where it will be near a door and not let you enter the room.
@@ -943,6 +956,12 @@ module EnemyRandomizer
       if room_has_up_doors && room_has_upwards_gravity
         # In rooms with upside down gravity and an updoor, Yorick's skull can fall infinitely upwards out of bounds, which lags the game.
         # The lag doesn't occur when falling infinitely downwards out of bounds for some reason.
+        return :redo
+      end
+    when "Great Ghost"
+      if enemy.room.entities.find{|e| e.is_enemy? && SPAWNER_ENEMY_IDS.include?(e.subtype)}
+        # Great Ghost only spawns when you kill all enemies in the room, which is impossible if a spawner is in the room.
+        # (This is true even for Wakwak tree, which looks like it can be killed to "clear" the room, but actually the room is still not considered cleared.)
         return :redo
       end
     end

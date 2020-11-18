@@ -793,10 +793,12 @@ module DoorRandomizer
         entity.type = 0
         entity.write_to_rom()
       end
-      # And change Dmitrii to boss rush Dmitrii so he doesn't crash when there's no event.
-      dmitrii = dmitrii_room.entities[5]
-      dmitrii.var_a = 0
-      dmitrii.write_to_rom()
+      if !options[:randomize_bosses]
+        # And change Dmitrii to boss rush Dmitrii so he doesn't crash when there's no event.
+        dmitrii = dmitrii_room.entities[5]
+        dmitrii.var_a = 0
+        dmitrii.write_to_rom()
+      end
       
       # Remove the cutscene with Dario because it doesn't work properly when you enter from the left side.
       dario_room = game.room_by_str("00-03-0B")
@@ -1041,12 +1043,7 @@ module DoorRandomizer
       arthroverta.x_pos = 0x80
       arthroverta.write_to_rom()
       
-      # If you enter Gravedorcus's room from the left he appears on top of you.
-      # So we change his initial state from 2 (appearing at the left and moving through the sand to the right) to 5 (appearing and spitting to the right).
-      game.fs.load_overlay(33)
-      game.fs.write(0x022B8568, [5].pack("C"))
-      # Also skip the intro when entering from the right so it's consistent with the lack of intro from the left. Remove the branch instruction that goes to the intro.
-      game.fs.write(0x022BA230, [0xE1A00000].pack("V"))
+      game.apply_armips_patch("ooe_fix_gravedorcus_from_left_entrance")
     end
   end
   
@@ -1351,6 +1348,10 @@ module DoorRandomizer
     solid_tile_index_on_tileset = SOLID_BLOCKADE_TILE_INDEX_FOR_TILESET[room.overlay_id][coll_layer.collision_tileset_pointer]
     layers_to_modify = room.layers.select do |layer|
       layer.tileset_pointer == coll_layer.tileset_pointer && layer.scroll_mode == 1
+    end
+    
+    if !layers_to_modify.include?(coll_layer)
+      raise "Collision layer has wrong scroll mode in room %s" % room.room_str
     end
     
     tiles.each do |tile|

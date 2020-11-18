@@ -5,8 +5,73 @@ module BossRandomizer
     
     puts "Shuffling bosses:" if verbose
     
+    if GAME == "dos"
+      # The Aguni placed by the boss randomizer does not require Paranoia to reach.
+      checker.remove_aguni_paranoia_requirement()
+    end
+    
     dos_randomize_final_boss()
     
+    remove_boss_cutscenes()
+    
+    if GAME == "dos"
+      # Turn the throne room Dario entity into Aguni so the boss randomizer logic works.
+      throne_room_dario = game.areas[0].sectors[9].rooms[1].entities[6]
+      throne_room_dario.subtype = 0x70
+    end
+    
+    boss_entities, boss_rooms_for_each_boss = get_boss_entities_and_boss_rooms()
+    
+    # Figure out what bosses can be placed in what rooms.
+    boss_replacements_that_work = {}
+    boss_rooms_for_each_boss.each do |old_boss_id, boss_rooms|
+      old_boss = game.enemy_dnas[old_boss_id]
+      
+      RANDOMIZABLE_BOSS_IDS.each do |new_boss_id|
+        new_boss = game.enemy_dnas[new_boss_id]
+        
+        all_rooms_work = boss_rooms.all? do |boss_room|
+          boss_entity = boss_room.entities.select{|e| e.is_boss? && e.subtype == old_boss_id}.first
+          case GAME
+          when "dos"
+            dos_check_boss_works_in_room(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
+          when "por"
+            por_check_boss_works_in_room(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
+          when "ooe"
+            ooe_check_boss_works_in_room(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
+          end
+        end
+        
+        if all_rooms_work
+          boss_replacements_that_work[old_boss_id] ||= []
+          boss_replacements_that_work[old_boss_id] << new_boss_id
+        end
+      end
+    end
+    ## Print all replacements that work.
+    #boss_replacements_that_work.each do |old_boss_id, valid_new_boss_ids|
+    #  old_boss = game.enemy_dnas[old_boss_id]
+    #  puts "Boss %02X (#{old_boss.name}) can be replaced with:" % [old_boss_id]
+    #  valid_new_boss_ids.each do |new_boss_id|
+    #    new_boss = game.enemy_dnas[new_boss_id]
+    #    puts "  Boss %02X (#{new_boss.name})" % [new_boss_id]
+    #  end
+    #end
+    
+    old_boss_id_to_new_boss_id = decide_on_random_boss_mapping(boss_replacements_that_work)
+    
+    # Print the randomly decided boss replacements.
+    old_boss_id_to_new_boss_id.each do |old_boss_id, new_boss_id|
+      old_boss = game.enemy_dnas[old_boss_id]
+      new_boss = game.enemy_dnas[new_boss_id]
+      
+      puts "  Replacing boss %02X (#{old_boss.name}) with boss %02X (#{new_boss.name})" % [old_boss_id, new_boss_id] if verbose
+    end
+    
+    change_boss_entities_according_to_mapping(boss_entities, old_boss_id_to_new_boss_id)
+  end
+  
+  def get_boss_entities_and_boss_rooms
     boss_entities = []
     game.each_room do |room|
       boss_entities_for_room = room.entities.select do |entity|
@@ -33,14 +98,6 @@ module BossRandomizer
       boss_entities += boss_entities_for_room
     end
     
-    remove_boss_cutscenes()
-    
-    if GAME == "dos"
-      # Turn the throne room Dario entity into Aguni so the boss randomizer logic works.
-      throne_room_dario = game.areas[0].sectors[9].rooms[1].entities[6]
-      throne_room_dario.subtype = 0x70
-    end
-    
     # Determine unique boss rooms.
     boss_rooms_for_each_boss = {}
     boss_entities.each do |boss_entity|
@@ -48,52 +105,42 @@ module BossRandomizer
       boss_rooms_for_each_boss[boss_entity.subtype] << boss_entity.room
       boss_rooms_for_each_boss[boss_entity.subtype].uniq!
     end
-    # Figure out what bosses can be placed in what rooms.
-    boss_swaps_that_work = {}
-    boss_rooms_for_each_boss.each do |old_boss_id, boss_rooms|
-      old_boss = game.enemy_dnas[old_boss_id]
-      
-      RANDOMIZABLE_BOSS_IDS.each do |new_boss_id|
-        new_boss = game.enemy_dnas[new_boss_id]
-        
-        all_rooms_work = boss_rooms.all? do |boss_room|
-          boss_entity = boss_room.entities.select{|e| e.is_boss? && e.subtype == old_boss_id}.first
-          case GAME
-          when "dos"
-            dos_check_boss_works_in_room(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
-          when "por"
-            por_check_boss_works_in_room(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
-          when "ooe"
-            ooe_check_boss_works_in_room(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
-          end
-        end
-        
-        if all_rooms_work
-          boss_swaps_that_work[old_boss_id] ||= []
-          boss_swaps_that_work[old_boss_id] << new_boss_id
-        end
-      end
-    end
-    # Limit to swaps that work both ways.
-    boss_swaps_that_work.each do |old_boss_id, new_boss_ids|
-      new_boss_ids.select! do |new_boss_id|
-        next if boss_swaps_that_work[new_boss_id].nil?
-        boss_swaps_that_work[new_boss_id].include?(old_boss_id)
-      end
-    end
-    # Print all swaps that work.
-    #boss_swaps_that_work.each do |old_boss_id, valid_new_boss_ids|
-    #  old_boss = game.enemy_dnas[old_boss_id]
-    #  puts "Boss %02X (#{old_boss.name}) can be swapped with:" % [old_boss_id]
-    #  valid_new_boss_ids.each do |new_boss_id|
-    #    new_boss = game.enemy_dnas[new_boss_id]
-    #    puts "  Boss %02X (#{new_boss.name})" % [new_boss_id]
-    #  end
-    #end
     
-    remaining_boss_ids = RANDOMIZABLE_BOSS_IDS.dup
+    return boss_entities, boss_rooms_for_each_boss
+  end
+  
+  def decide_on_random_boss_mapping(boss_replacements_that_work)
+    old_boss_id_to_new_boss_id = {}
+    remaining_new_boss_ids = RANDOMIZABLE_BOSS_IDS.dup
+    
+    # Decide on boss replacements in the order of bosses with less possible valid replacements first, to reduce the chance of failure because we already used up all valid replacements for that boss before getting to it.
+    old_boss_ids = RANDOMIZABLE_BOSS_IDS.dup
+    old_boss_ids.sort_by! do |old_boss_id|
+      boss_replacements_that_work[old_boss_id].size
+    end
+    
+    old_boss_ids.each do |old_boss_id|
+      possible_boss_ids_for_this_boss = boss_replacements_that_work[old_boss_id] & remaining_new_boss_ids
+      if possible_boss_ids_for_this_boss.empty?
+        # Nothing this could possibly randomize into and work correctly.
+        raise "Failed to randomize boss %s!" % game.enemy_dnas[old_boss_id].name
+      end
+      
+      if possible_boss_ids_for_this_boss.length > 1
+        # Don't allow the boss to be in its vanilla location unless that's the only valid option left.
+        possible_boss_ids_for_this_boss -= [old_boss_id]
+      end
+      
+      new_boss_id = possible_boss_ids_for_this_boss.sample(random: rng)
+      old_boss_id_to_new_boss_id[old_boss_id] = new_boss_id
+      remaining_new_boss_ids.delete(new_boss_id)
+    end
+    
+    return old_boss_id_to_new_boss_id
+  end
+  
+  def change_boss_entities_according_to_mapping(boss_entities, old_boss_id_to_new_boss_id)
     queued_dna_changes = Hash.new{|h, k| h[k] = {}}
-    already_randomized_bosses = {}
     if GAME == "dos"
       @original_boss_seals = {}
       (0..0x11).each do |boss_index|
@@ -106,24 +153,7 @@ module BossRandomizer
       old_boss_id = boss_entity.subtype
       old_boss = game.enemy_dnas[old_boss_id]
       
-      already_randomized_new_boss_id = already_randomized_bosses[old_boss_id]
-      if already_randomized_new_boss_id
-        new_boss_id = already_randomized_new_boss_id
-      else
-        possible_boss_ids_for_this_boss = boss_swaps_that_work[old_boss_id] & remaining_boss_ids
-        if possible_boss_ids_for_this_boss.empty?
-          # Nothing this could possibly randomize into and work correctly. Skip.
-          #puts "BOSS %02X FAILED!" % old_boss_id
-          next
-        end
-        
-        if possible_boss_ids_for_this_boss.length > 1
-          # Don't allow the boss to be in its vanilla location unless that's the only valid option left.
-          possible_boss_ids_for_this_boss -= [old_boss_id]
-        end
-        
-        new_boss_id = possible_boss_ids_for_this_boss.sample(random: rng)
-      end
+      new_boss_id = old_boss_id_to_new_boss_id[old_boss_id]
       new_boss = game.enemy_dnas[new_boss_id]
       
       result = case GAME
@@ -138,16 +168,9 @@ module BossRandomizer
         next
       end
       
-      puts "  Replacing boss %02X (#{old_boss.name}) with boss %02X (#{new_boss.name})" % [old_boss_id, new_boss_id] if verbose
-      
       boss_entity.subtype = new_boss_id
-      remaining_boss_ids.delete(new_boss_id)
-      remaining_boss_ids.delete(old_boss_id)
       
       boss_entity.write_to_rom()
-      
-      already_randomized_bosses[old_boss_id] = new_boss_id
-      already_randomized_bosses[new_boss_id] = old_boss_id
       
       update_boss_doors(old_boss_id, new_boss_id, boss_entity)
       
@@ -195,6 +218,11 @@ module BossRandomizer
       end
     when "Puppet Master"
       # If Puppet Master is in a room less than 2 screens wide he can teleport the player out of bounds.
+      if boss_entity.room.width < 2
+        return false
+      end
+    when "Rahab"
+      # Waiting for Rahab to come up is annoying enough in wide rooms, in single tile rooms it would take twice as long.
       if boss_entity.room.width < 2
         return false
       end
@@ -295,6 +323,9 @@ module BossRandomizer
         entity_hider = game.entity_by_str("00-05-07_14")
         entity_hider.subtype = new_boss_index
         entity_hider.write_to_rom()
+        
+        # TODO issue with non-room-rando: the logic assumes you need some kind of distance to get across the gap to the other side of the boss room, but the floor doesn't break in boss rando after defeating the boss. (however, it DOES break after exiting and re-entering the room.)
+        # maybe change the floor to not break after re-entering, and also update the logic to reflect this, but only when boss rando is on
       end
     when "Paranoia"
       if boss_entity.var_a == 1
@@ -318,6 +349,13 @@ module BossRandomizer
       end
     end
     
+    if boss_entity.room.room_str == "00-01-06" && new_boss.name != "Puppet Master"
+      # Puppet Master's room has a thick wall on the left.
+      # If a boss besides Puppet Master gets placed in Puppet Master's room, we move the wall over to the left edge of the screen.
+      # This is to prevent issues that several bosses would have with this wall, such as Paranoia's mirror being covered up, Abaddon being pushed out of bounds, Rahab being unreachable for even longer than in vanilla, etc.
+      move_puppet_master_room_wall_to_the_left(boss_entity.room)
+    end
+    
     case new_boss.name
     when "Flying Armor"
       boss_entity.var_a = 0 # Boss rush
@@ -332,11 +370,6 @@ module BossRandomizer
       boss_entity.var_b = 0
       boss_entity.x_pos = 0x10
       boss_entity.y_pos = 0xB0
-      
-      if old_boss.name == "Puppet Master"
-        # Puppet Master's room's left wall is farther to the right than most.
-        boss_entity.x_pos += 0x90
-      end
     when "Malphas"
       boss_entity.var_a = 0
       boss_entity.var_b = 0 # Normal
@@ -348,11 +381,23 @@ module BossRandomizer
     when "Dario"
       boss_entity.var_a = 0
       boss_entity.var_b = 0 # Normal (not with Aguni)
+      
+      # Remove line that triggers the transition into the Aguni fight when the player enters a mirror during the Dario fight.
+      # If Dario got placed in a room with a mirror in boss randomizer, entering the mirror would crash the game unless this code is removed.
+      game.fs.write(0x0225A988, [0xE1A00000].pack("V")) # nop
+      
+      if boss_entity.room.width < 2
+        # If Dario is not in a wide room, he could teleport outside of the room.
+        # Although he comes back eventually, it's RNG and could take a while, so prevent him from teleporting outside the room.
+        # After generating a random number from 4-C, instead of multiplying by 0x20000 (shift by 0x11), multiply by 0x10000 (shift by 0x10).
+        # This limits his teleportation destination X positions from tiles 4-C in the room, instead of 8-18.
+        game.fs.write(0x0225BB6C, [0xE1A02800].pack("V")) # mov r2, r0, lsl 10h
+      end
     when "Puppet Master"
       boss_entity.var_a = 1 # Normal
       boss_entity.var_b = 0
       
-      if old_boss.name == "Puppet Master"
+      if boss_entity.room.room_str == "00-01-06"
         # Puppet Master's in his original room.
         boss_entity.x_pos = 0x148
         boss_entity.y_pos = 0x60
@@ -367,6 +412,14 @@ module BossRandomizer
           boss_entity.y_pos = 0x70
         end
         
+        if boss_entity.room.room_str == "00-0E-04"
+          # Boss rush Puppet Master's room.
+          # We don't want him to cut off the left edge of the screen, so place boss rush Puppet Master here instead of regular Puppet Master.
+          boss_entity.var_a = 0 # Boss rush
+        end
+      end
+      
+      if old_boss.name != "Puppet Master"
         # Also update a hardcoded position for his limbs to appear at.
         game.fs.load_overlay(25)
         game.fs.write(0x023052B0, [boss_entity.x_pos, boss_entity.y_pos].pack("vv"))
@@ -445,6 +498,12 @@ module BossRandomizer
           entity.write_to_rom()
         end
       end
+      
+      # Increase the min and max Y values that Death will look for the player within when seeing if he should start his intro cutscene.
+      # This is so the cutscene still triggers even if Death is placed in Rahab's room, and the player has Rahab's ability soul - being at the bottom of the room in the water places you farther away from Death than you'd normally be.
+      game.fs.load_overlay(34)
+      game.fs.write(0x0230282C, [0xE3A06D06].pack("V")) # mov r6, 180h
+      game.fs.write(0x02302838, [0xE3E02D06].pack("V")) # mvn r2, 180h (aka -181, can't do -180 because that constant won't fit)
     when "Abaddon"
       boss_entity.var_a = 1 # Normal
       boss_entity.var_b = 0
@@ -453,6 +512,28 @@ module BossRandomizer
       boss_entity.x_pos = 0x80
       boss_entity.y_pos = 0xB0
     end
+  end
+  
+  def move_puppet_master_room_wall_to_the_left(room)
+    layer = room.layers[0]
+    (0..9).each do |x|
+      SCREEN_HEIGHT_IN_TILES.times do |y|
+        src_tile_index = y*layer.width*SCREEN_WIDTH_IN_TILES + x+9
+        dst_tile_index = y*layer.width*SCREEN_WIDTH_IN_TILES + x
+        layer.tiles[dst_tile_index] = layer.tiles[src_tile_index]
+      end
+    end
+    layer.write_to_rom()
+    
+    layer = room.layers[1]
+    (1..9).each do |x|
+      SCREEN_HEIGHT_IN_TILES.times do |y|
+        src_tile_index = y*layer.width*SCREEN_WIDTH_IN_TILES + x+16
+        dst_tile_index = y*layer.width*SCREEN_WIDTH_IN_TILES + x
+        layer.tiles[dst_tile_index] = layer.tiles[src_tile_index]
+      end
+    end
+    layer.write_to_rom()
   end
   
   def por_adjust_randomized_boss(boss_entity, old_boss_id, new_boss_id, old_boss, new_boss)
@@ -538,17 +619,39 @@ module BossRandomizer
       entity_hider.write_to_rom()
     end
     
+    if boss_entity.room.room_str == "06-00-05"
+      # Medusa's vanilla position is at the top of the room.
+      # We move it down to the floor so certain bosses don't go out of bounds.
+      boss_entity.y_pos = 0xB0
+    end
+    
     case new_boss.name
     when "Dullahan"
       boss_entity.var_a = 1 # Normal with intro, not boss rush
       boss_entity.var_b = 0
     when "Behemoth"
-      boss_entity.var_a = 0
+      boss_entity.var_a = 1 # Stays dead when killed
       boss_entity.var_b = 0 # Normal
       
       boss_entity.x_pos = boss_entity.room.width * SCREEN_WIDTH_IN_PIXELS / 2
       
-      # TODO: Behemoth can be undodgeable without those jumpthrough platforms in the room, so add those
+      if !["Behemoth", "Legion"].include?(old_boss.name)
+        # Add two platforms to rooms with Behemoth in them to help dodging.
+        # PoR doesn't have a generic platform entity we can use, so we use the platforms that flip after a second instead since they're better than nothing.
+        platform_1 = boss_entity.room.add_new_entity()
+        platform_1.type = SPECIAL_OBJECT_ENTITY_TYPE
+        platform_1.subtype = 0x3E
+        platform_1.x_pos = 0x50
+        platform_1.y_pos = 0x70
+        platform_1.write_to_rom()
+        
+        platform_2 = boss_entity.room.add_new_entity()
+        platform_2.type = SPECIAL_OBJECT_ENTITY_TYPE
+        platform_2.subtype = 0x3E
+        platform_2.x_pos = boss_entity.room.width * SCREEN_WIDTH_IN_PIXELS - 0x50
+        platform_2.y_pos = 0x70
+        platform_2.write_to_rom()
+      end
     when "Keremet"
       boss_entity.var_a = 1 # Normal
       boss_entity.var_b = 0
@@ -573,7 +676,9 @@ module BossRandomizer
         boss_entity.x_pos = boss_entity.room.width * SCREEN_WIDTH_IN_PIXELS / 2
         boss_entity.y_pos = 0xB0
         
-        # TODO: doesn't play boss music
+        # Remove a check that boss rush Legion will always spawn, even if Legion's boss death flag is set.
+        game.fs.load_overlay(52)
+        game.fs.write(0x022D7918, [0xE1A00000].pack("V")) # nop
       end
       boss_entity.var_b = 0
     when "Dagon"
@@ -590,13 +695,9 @@ module BossRandomizer
     when "Death"
       boss_entity.var_a = 0 # Solo Death (not with Dracula)
       boss_entity.var_b = 0 # Starts fighting immediately, not waiting for cutscene to finish
-      
-      # TODO: doesn't play boss music
     when "Stella"
       boss_entity.var_a = 0 # Just Stella, we don't want Stella&Loretta.
       boss_entity.var_b = 0 # Boss rush.
-      
-      # TODO: doesn't play boss music
     when "The Creature"
       boss_entity.var_a = 1 # Boss version, not the common enemy version
       boss_entity.var_b = 0
@@ -681,20 +782,22 @@ module BossRandomizer
     
     case new_boss.name
     when "Arthroverta"
-      # Add two magnes points to rooms with Arthroverta in them to help dodging.
-      magnes_point_1 = boss_entity.room.add_new_entity()
-      magnes_point_1.type = SPECIAL_OBJECT_ENTITY_TYPE
-      magnes_point_1.subtype = 1
-      magnes_point_1.x_pos = 0x40
-      magnes_point_1.y_pos = 0x28
-      magnes_point_1.write_to_rom()
-      
-      magnes_point_2 = boss_entity.room.add_new_entity()
-      magnes_point_2.type = SPECIAL_OBJECT_ENTITY_TYPE
-      magnes_point_2.subtype = 1
-      magnes_point_2.x_pos = boss_entity.room.width * SCREEN_WIDTH_IN_PIXELS - 0x40
-      magnes_point_2.y_pos = 0x28
-      magnes_point_2.write_to_rom()
+      if old_boss.name != "Arthroverta"
+        # Add two magnes points to rooms with Arthroverta in them to help dodging.
+        magnes_point_1 = boss_entity.room.add_new_entity()
+        magnes_point_1.type = SPECIAL_OBJECT_ENTITY_TYPE
+        magnes_point_1.subtype = 1
+        magnes_point_1.x_pos = 0x40
+        magnes_point_1.y_pos = 0x28
+        magnes_point_1.write_to_rom()
+        
+        magnes_point_2 = boss_entity.room.add_new_entity()
+        magnes_point_2.type = SPECIAL_OBJECT_ENTITY_TYPE
+        magnes_point_2.subtype = 1
+        magnes_point_2.x_pos = boss_entity.room.width * SCREEN_WIDTH_IN_PIXELS - 0x40
+        magnes_point_2.y_pos = 0x28
+        magnes_point_2.write_to_rom()
+      end
     when "Giant Skeleton"
       boss_entity.var_a = 1 # Boss version of the Giant Skeleton
       boss_entity.var_b = 0 # Faces the player when they enter the room.

@@ -32,6 +32,14 @@ module MapRandomizer
     
     maps_rendered = 0
     
+    if ["por", "ooe"].include?(GAME)
+      @orig_map_tile_counts_for_area = {}
+      game.areas.each_with_index do |area, area_index|
+        map = game.get_map(area_index, 0)
+        @orig_map_tile_counts_for_area[area_index] = map.number_of_tiles
+      end
+    end
+    
     case GAME
     when "dos"
       castle_rooms = []
@@ -125,7 +133,7 @@ module MapRandomizer
       # We don't want anything to use the right door of the tall room above the Cerberus statue, so mark it as inaccessible.
       # If anything connected to this door it could result in whole areas being placed behind the cerberus gate. We only want Dracula behind it.
       room = game.room_by_str("00-09-01")
-      tiled.read("./dsvrandom/roomedits/ooe_map_rando_00-09-01.tmx", room)
+      tiled.import_tmx_map("./dsvrandom/roomedits/ooe_map_rando_00-09-01.tmx", room)
       door = room.doors[1]
       door.destination_room_metadata_ram_pointer = 0
       door.x_pos = room.width + 1
@@ -251,11 +259,11 @@ module MapRandomizer
       filename = "./dsvrandom/roomedits/por_map_rando_05-01_new_save.tmx"
       sector.add_new_room()
       room = sector.rooms[-1]
-      tiled.read(filename, room)
+      tiled.import_tmx_map(filename, room)
       checker.add_empty_reqs_for_new_room(room)
       sector.add_new_room()
       room = sector.rooms[-1]
-      tiled.read(filename, room)
+      tiled.import_tmx_map(filename, room)
       checker.add_empty_reqs_for_new_room(room)
       
       # Add two save rooms to a Burnt Paradise sector that originally had no save rooms.
@@ -263,11 +271,11 @@ module MapRandomizer
       filename = "./dsvrandom/roomedits/por_map_rando_06-01_new_save.tmx"
       sector.add_new_room()
       room = sector.rooms[-1]
-      tiled.read(filename, room)
+      tiled.import_tmx_map(filename, room)
       checker.add_empty_reqs_for_new_room(room)
       sector.add_new_room()
       room = sector.rooms[-1]
-      tiled.read(filename, room)
+      tiled.import_tmx_map(filename, room)
       checker.add_empty_reqs_for_new_room(room)
     end
   end
@@ -780,8 +788,6 @@ module MapRandomizer
             end
           end
           
-          possible_room_positions = []
-          
           if possible_room_positions.empty?
             # Then prioritize progress rooms, rooms that increase the number of available doors, and transition rooms.
             possible_room_positions = valid_room_positions.select do |room_position|
@@ -799,7 +805,27 @@ module MapRandomizer
           end
           
           if possible_room_positions.empty?
-            # Then use rooms that keeps the number of doors the same.
+            # Then use rooms that keeps the number of doors the same and are NOT save rooms extremely close to an existing save room or warp rooms extremely close to an existing warp room.
+            possible_room_positions = valid_room_positions.select do |room_position|
+              if room_position[:diff_in_num_spots] == 0
+                room = room_position[:room]
+                if room.entities.find{|e| e.is_save_point?}
+                  save_dist = get_distance_to_save_room(room_position[:dest_room])
+                  save_dist >= 4
+                elsif room.entities.find{|e| e.is_warp_point?}
+                  warp_dist = get_distance_to_warp_room(room_position[:dest_room])
+                  warp_dist >= 4
+                else
+                  true
+                end
+              else
+                false
+              end
+            end
+          end
+          
+          if possible_room_positions.empty?
+            # Then use rooms that keeps the number of doors the same, even if they are save/warp rooms extremely close to existing ones.
             possible_room_positions = valid_room_positions.select do |room_position|
               if room_position[:diff_in_num_spots] == 0
                 true
@@ -832,12 +858,34 @@ module MapRandomizer
           warp_room_positions = valid_room_positions.select do |room_position|
             room_position[:room].entities.find{|e| e.is_warp_point?}
           end
+          spaced_out_save_room_positions = valid_room_positions.select do |room_position|
+            room = room_position[:room]
+            if room.entities.find{|e| e.is_save_point?}
+              save_dist = get_distance_to_save_room(room_position[:dest_room])
+              save_dist >= 4
+            else
+              false
+            end
+          end
+          spaced_out_warp_room_positions = valid_room_positions.select do |room_position|
+            room = room_position[:room]
+            if room.entities.find{|e| e.is_warp_point?}
+              warp_dist = get_distance_to_warp_room(room_position[:dest_room])
+              warp_dist >= 4
+            else
+              false
+            end
+          end
           
           # Prioritize OoE area entrances, then warp rooms, then save rooms, then other dead ends.
           if area_entrance_room_positions.any?
             possible_room_positions = area_entrance_room_positions
+          elsif spaced_out_warp_room_positions.any?
+            possible_room_positions = spaced_out_warp_room_positions
           elsif warp_room_positions.any?
             possible_room_positions = warp_room_positions
+          elsif spaced_out_save_room_positions.any?
+            possible_room_positions = spaced_out_save_room_positions
           elsif save_room_positions.any?
             possible_room_positions = save_room_positions
           else
@@ -956,6 +1004,19 @@ module MapRandomizer
     if ratio_unplaced_rooms > 0.75
       puts "Map randomizer failed to place #{(ratio_unplaced_rooms*100).to_i}% of rooms in this sector." if @map_rando_debug
       return :shouldredo
+    end
+    
+    if ["por", "ooe"].include?(GAME)
+      # Ensure that the number of map tiles on the map hasn't increased compared to the vanilla map, since that wouldn't work correctly.
+      estimated_curr_num_tiles = 0
+      map_width.times do |x|
+        map_height.times do |y|
+          estimated_curr_num_tiles += 1 if map_spots[x][y]
+        end
+      end
+      if estimated_curr_num_tiles > @orig_map_tile_counts_for_area[area_index]
+        return :mustredo
+      end
     end
     
     puts "Successfully placed non-transition rooms: #{num_placed_non_transition_rooms}" if @map_rando_debug
@@ -2232,6 +2293,11 @@ module MapRandomizer
       
       next if y < 0x60
       
+      if GAME == "ooe" && type == :save
+        # Save points in OoE are hardcoded to put themselves at Y position 0xA0, and they only move up a maximum of one block if stuck inside a wall.
+        next if y < 0x90
+      end
+      
       full_height_is_empty = true
       (y-0x30..y).step(0x10) do |y_to_check|
         if !coll[x,y_to_check].is_blank
@@ -2246,6 +2312,11 @@ module MapRandomizer
         (existing_point.x_pos - x).abs <= 0x20
       end
       next if any_overlapping
+      
+      if coll[x,y+0x10].is_slope?
+        # Saves/warps can be unusable if placed on top of a slope.
+        next
+      end
       
       true
     end

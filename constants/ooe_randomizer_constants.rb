@@ -116,6 +116,10 @@ PATH_BLOCKING_BREAKABLE_WALLS = [
   {var_a: 1, var_b: 0},
   {var_a: 1, var_b: 1},
   {var_a: 0, var_b: 1},
+  
+  # The below are for breakable walls that block Paries entry points in the Underground Labyrinth.
+  {var_a: 2, var_b: 1},
+  {var_a: 2, var_b: 2},
 ]
 
 MAGICAL_TICKET_X_POS_OFFSET = 0x02037B10
@@ -167,7 +171,7 @@ BGM_RANDO_AVAILABLE_SONG_INDEXES = [
 ]
 
 LOAD_SPRITE_SINGLE_GFX_FUNC_PTR = 0x0203B5D0
-LOAD_SPRITE_MULTI_GFX_FUNC_PTR = 0x0203B6D0
+LOAD_SPRITE_MULTI_GFX_FUNC_PTRS = [0x0203B6D0, 0x0204160C]
 CUSTOM_LOAD_SPRITE_MULTI_GFX_FUNC_PTR = 0x022EB1CC
 
 BAD_NEW_SAVE_WARP_ROOMS = [

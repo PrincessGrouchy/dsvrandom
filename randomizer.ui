@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>820</width>
-    <height>733</height>
+    <height>710</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -323,48 +323,6 @@
          </layout>
         </widget>
        </item>
-       <item>
-        <widget class="QGroupBox" name="experimental_options_enabled">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="title">
-          <string>Experimental randomization options (buggy and not guaranteed completable)</string>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>false</bool>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_8">
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="randomize_players">
-            <property name="text">
-             <string>Players</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="randomize_enemy_sprites">
-            <property name="text">
-             <string>Enemy Sprites</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QCheckBox" name="randomize_boss_sprites">
-            <property name="text">
-             <string>Boss Sprites</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
       </layout>
      </widget>
      <widget class="QWidget" name="tab_3">
@@ -434,8 +392,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>100</width>
-            <height>30</height>
+            <width>778</width>
+            <height>464</height>
            </rect>
           </property>
           <layout class="QFormLayout" name="formLayout_5">
@@ -476,6 +434,13 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="scavenger_mode">
+            <property name="text">
+             <string>Scavenger Mode</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="1">
            <widget class="QCheckBox" name="revise_item_descriptions">
             <property name="text">
@@ -483,13 +448,6 @@
             </property>
             <property name="checked">
              <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="scavenger_mode">
-            <property name="text">
-             <string>Scavenger Mode</string>
             </property>
            </widget>
           </item>
@@ -510,13 +468,6 @@
             </property>
             <property name="checked">
              <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QCheckBox" name="show_map_markers_on_top_screen">
-            <property name="text">
-             <string>Show markers on top screen map</string>
             </property>
            </widget>
           </item>
@@ -586,7 +537,7 @@
           <item row="2" column="0">
            <widget class="QCheckBox" name="dos_new_style_map">
             <property name="text">
-             <string>New style map</string>
+             <string>New style map visuals</string>
             </property>
            </widget>
           </item>
@@ -617,9 +568,9 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QCheckBox" name="dont_randomize_change_cube">
+           <widget class="QCheckBox" name="start_with_change_cube">
             <property name="text">
-             <string>Don't randomize Change Cube</string>
+             <string>Start with Change Cube</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -716,6 +667,22 @@
         </widget>
        </item>
        <item>
+        <widget class="QGroupBox" name="groupBox_11">
+         <property name="title">
+          <string>Portrait of Ruin &amp;&amp; Order of Ecclesia</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_13">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="show_map_markers_on_top_screen">
+            <property name="text">
+             <string>Show markers on top screen map</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer_2">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -734,6 +701,7 @@
       <zorder>groupBox_2</zorder>
       <zorder>groupBox_4</zorder>
       <zorder>verticalSpacer_2</zorder>
+      <zorder>groupBox_11</zorder>
      </widget>
      <widget class="QWidget" name="tab_5">
       <attribute name="title">
@@ -778,6 +746,41 @@
         </widget>
        </item>
        <item>
+        <widget class="QGroupBox" name="experimental_options_enabled">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="title">
+          <string>Experimental randomization options (buggy and not guaranteed completable)</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_8">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="randomize_enemy_sprites">
+            <property name="text">
+             <string>Enemy Sprites</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="randomize_boss_sprites">
+            <property name="text">
+             <string>Boss Sprites</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -789,57 +792,6 @@
           </size>
          </property>
         </spacer>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="tab_4">
-      <attribute name="title">
-       <string>Paste Seed Info</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_5">
-       <item>
-        <widget class="QLabel" name="label_6">
-         <property name="text">
-          <string>Paste the full seed info copied from a seed log into the field below and click Use Seed Info.</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="label_7">
-         <property name="text">
-          <string>Doing this will make the randomizer use all the same settings as the seed info you copy pasted, without needing to select each option individually.</string>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QTextEdit" name="paste_seed_info_field"/>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_6">
-         <item>
-          <spacer name="horizontalSpacer_2">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QPushButton" name="read_seed_info_button">
-           <property name="text">
-            <string>Use Seed Info</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
        </item>
       </layout>
      </widget>
@@ -860,6 +812,38 @@
       <bool>true</bool>
      </property>
     </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QPushButton" name="load_seed_info_button">
+       <property name="text">
+        <string>Load Seed Info from Spoiler/Non-Spoiler Log</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="paste_seed_info_button">
+       <property name="text">
+        <string>Paste Seed Info from Clipboard</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="save_options_preset_button">
+       <property name="text">
+        <string>Save Current Options to Preset File</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="load_options_preset_button">
+       <property name="text">
+        <string>Load Options from Preset File</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -957,27 +941,12 @@
        </item>
        <item>
         <property name="text">
-         <string>6 seeds</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>7 seeds</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>8 seeds</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>9 seeds</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
          <string>10 seeds</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>20 seeds</string>
         </property>
        </item>
       </widget>
@@ -1007,6 +976,7 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>clean_rom</tabstop>
   <tabstop>clean_rom_browse_button</tabstop>
   <tabstop>output_folder</tabstop>
   <tabstop>output_folder_browse_button</tabstop>
@@ -1035,14 +1005,14 @@
   <tabstop>randomize_shop</tabstop>
   <tabstop>randomize_weapon_synths</tabstop>
   <tabstop>randomize_wooden_chests</tabstop>
-  <tabstop>experimental_options_enabled</tabstop>
-  <tabstop>randomize_players</tabstop>
-  <tabstop>randomize_enemy_sprites</tabstop>
-  <tabstop>randomize_boss_sprites</tabstop>
+  <tabstop>load_seed_info_button</tabstop>
+  <tabstop>paste_seed_info_button</tabstop>
+  <tabstop>save_options_preset_button</tabstop>
+  <tabstop>load_options_preset_button</tabstop>
   <tabstop>about_button</tabstop>
+  <tabstop>reset_settings_to_default</tabstop>
   <tabstop>num_seeds_to_create</tabstop>
   <tabstop>randomize_button</tabstop>
-  <tabstop>tabWidget</tabstop>
   <tabstop>difficulty_level</tabstop>
   <tabstop>enable_glitch_reqs</tabstop>
   <tabstop>rebalance_enemies_in_room_rando</tabstop>
@@ -1061,7 +1031,7 @@
   <tabstop>menace_to_somacula</tabstop>
   <tabstop>dos_new_style_map</tabstop>
   <tabstop>por_short_mode</tabstop>
-  <tabstop>dont_randomize_change_cube</tabstop>
+  <tabstop>start_with_change_cube</tabstop>
   <tabstop>por_nerf_enemy_resistances</tabstop>
   <tabstop>skip_emblem_drawing</tabstop>
   <tabstop>fix_infinite_quest_rewards</tabstop>
@@ -1071,10 +1041,15 @@
   <tabstop>always_dowsing</tabstop>
   <tabstop>gain_extra_attribute_points</tabstop>
   <tabstop>summons_gain_extra_exp</tabstop>
+  <tabstop>show_map_markers_on_top_screen</tabstop>
   <tabstop>randomize_bgm</tabstop>
   <tabstop>randomize_dialogue</tabstop>
-  <tabstop>paste_seed_info_field</tabstop>
-  <tabstop>read_seed_info_button</tabstop>
+  <tabstop>randomize_player_sprites</tabstop>
+  <tabstop>randomize_skill_sprites</tabstop>
+  <tabstop>experimental_options_enabled</tabstop>
+  <tabstop>randomize_enemy_sprites</tabstop>
+  <tabstop>randomize_boss_sprites</tabstop>
+  <tabstop>tabWidget</tabstop>
  </tabstops>
  <resources/>
  <connections/>

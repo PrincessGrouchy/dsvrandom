@@ -12,14 +12,14 @@ module Tweaks
       # And also modify the level design of the drawbridge room so you can go up and down even when the drawbridge is closed.
       filename = "./dsvrandom/roomedits/dos_room_rando_00-00-15.tmx"
       room = game.areas[0].sectors[0].rooms[0x15]
-      tiled.read(filename, room)
+      tiled.import_tmx_map(filename, room)
     end
     
     if GAME == "dos"
       # Modify the level design of the room after Flying Armor to not require a backdash jump to go from right to left.
       filename = "./dsvrandom/roomedits/dos_00-00-08.tmx"
       room = game.areas[0].sectors[0].rooms[8]
-      tiled.read(filename, room)
+      tiled.import_tmx_map(filename, room)
     end
     
     if GAME == "dos"
@@ -65,7 +65,7 @@ module Tweaks
       ].each do |area_index, sector_index, room_index|
         filename = "./dsvrandom/roomedits/ooe_linear_%02X-%02X-%02X.tmx" % [area_index, sector_index, room_index]
         room = game.areas[area_index].sectors[sector_index].rooms[room_index]
-        tiled.read(filename, room)
+        tiled.import_tmx_map(filename, room)
         
         # Also update the map tile to be an entrance.
         map = game.get_map(area_index, sector_index)
@@ -141,7 +141,7 @@ module Tweaks
         
         room = game.areas[0].sectors[1].rooms[room_index]
         filename = "./dsvrandom/roomedits/dos_room_rando_00-01-%02X.tmx" % room_index
-        tiled.read(filename, room)
+        tiled.import_tmx_map(filename, room)
       end
       
       # Now remove the wall entities in each room and the control panel entity.
@@ -167,6 +167,15 @@ module Tweaks
       
       # When starting a new game, don't unlock the Lost Village warp by default.
       game.fs.write(0x021F6054, [0xE1A00000].pack("V"))
+      
+      if !options[:randomize_maps]
+        # When map randomizer is NOT on, the total number of tiles on the map never gets updated.
+        # But Gergoth not breaking the floor means you can't access some vanilla tiles.
+        # So update the number of tiles here to prevent 100% map being impossible.
+        game.apply_armips_patch("dos_allow_changing_total_map_tiles")
+        total_num_tiles = 0x400 - 7 # 0x400 is the vanilla number of tiles, 7 Tiles are unreachable when Gergoth doesn't break the floor.
+        game.fs.write(0x02026B68, [total_num_tiles].pack("V"))
+      end
     end
     
     if GAME == "dos" && room_rando?
@@ -182,7 +191,7 @@ module Tweaks
       ["07-00-07", "07-00-0A", "07-00-0B", "07-00-0D", "08-02-18", "08-02-19"].each do |room_str|
         room = game.room_by_str(room_str)
         filename = "./dsvrandom/roomedits/por_room_rando_#{room_str}.tmx"
-        tiled.read(filename, room)
+        tiled.import_tmx_map(filename, room)
       end
     end
     
@@ -204,7 +213,7 @@ module Tweaks
       [0x8, 0xD, 0x12].each do |room_index|
         room = game.areas[0xA].sectors[0].rooms[room_index]
         filename = "./dsvrandom/roomedits/ooe_room_rando_0A-00-%02X.tmx" % room_index
-        tiled.read(filename, room)
+        tiled.import_tmx_map(filename, room)
       end
     end
     
@@ -397,6 +406,10 @@ module Tweaks
     
     if GAME == "dos" && options[:randomize_bosses]
       game.apply_armips_patch("dos_fix_bosses_not_playing_music")
+    end
+    
+    if GAME == "por" && options[:randomize_bosses]
+      game.apply_armips_patch("por_fix_bosses_not_playing_music")
     end
     
     if GAME == "dos"
@@ -1142,8 +1155,10 @@ module Tweaks
         x_pos = 0x300 - 0x10
         y_pos = 0x80
       when "ooe"
-        x_pos = 0x30
-        y_pos = 0x230
+        # Place them on a platform near the door to the save room.
+        # We also put an inter-area warp in the save room which the player might want to use.
+        x_pos = 0xB0
+        y_pos = 0x170
       end
     end
 

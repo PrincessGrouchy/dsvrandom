@@ -189,7 +189,7 @@ class CompletabilityChecker
       return @options[:open_world_map]
     end
     
-    if @defs[req]
+    if !@defs[req].nil?
       if @defs[req].is_a?(Integer)
         item_global_id = @defs[req]
         has_item = @current_items.include?(item_global_id)
@@ -428,6 +428,11 @@ class CompletabilityChecker
     # Remove burnt paradise's creature requirement.
     game.fs.write(0x02079008+3, [0xEA].pack("C")) # Change conditional branch to unconditional branch.
     @defs[:burntparadise] = [[:portrait_burnt_paradise]] # Update the pickup requirement for the logic.
+  end
+  
+  def remove_aguni_paranoia_requirement
+    # Remove the logic that you need the Paranoia soul to defeat Aguni since this is not true in boss randomizer.
+    @defs[:can_kill_aguni] = true
   end
   
   def generate_empty_item_requirements_file

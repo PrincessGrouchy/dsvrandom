@@ -7,7 +7,7 @@ module SkillSpriteRandomizer
     all_skill_sprites = {}
     all_orig_skill_sprites = {}
     weapon_glyph_sprite_indexes = []
-    remaining_sprite_indexes = []
+    remaining_sprite_indexes_by_type = {}
     skills.each do |skill|
       next if skill["Sprite"] == 0 # Skill with no sprite
       
@@ -25,8 +25,19 @@ module SkillSpriteRandomizer
       orig_sprite = Sprite.new(skill_gfx.sprite_file_pointer, game.fs)
       all_orig_skill_sprites[skill["Sprite"]] = orig_sprite
       
-      if !remaining_sprite_indexes.include?(skill["Sprite"])
-        remaining_sprite_indexes << skill["Sprite"]
+      if GAME == "por"
+        # In PoR, dual crushes are hardcoded to have more possible space reserved for allocating their sprite files compared to subweapons/spells.
+        # So we can't mix the two groups together, or a subweapon/spell with a large dual crush sprite file could corrupt Jonathan's sprite file which is after it in RAM.
+        type = skill["Type"]
+      else
+        # DoS and OoE do not have this issue.
+        type = "any"
+      end
+      
+      remaining_sprite_indexes_by_type[type] ||= []
+      
+      if !remaining_sprite_indexes_by_type[type].include?(skill["Sprite"])
+        remaining_sprite_indexes_by_type[type] << skill["Sprite"]
       end
       
       if GAME == "ooe" && skill["Code"] == 0x02070890
@@ -50,14 +61,20 @@ module SkillSpriteRandomizer
         next
       end
       
-      if remaining_sprite_indexes.empty?
+      if GAME == "por"
+        type = skill["Type"]
+      else
+        type = "any"
+      end
+      
+      if remaining_sprite_indexes_by_type[type].empty?
         raise "Ran out of unique skill sprite indexes to use"
       end
       
-      new_sprite_index = remaining_sprite_indexes.sample(random: rng) || 0
+      new_sprite_index = remaining_sprite_indexes_by_type[type].sample(random: rng) || 0
       old_sprite_index_to_new_sprite_index[skill["Sprite"]] = new_sprite_index
       new_sprite_index_to_old_sprite_index[new_sprite_index] = skill["Sprite"]
-      remaining_sprite_indexes.delete(new_sprite_index)
+      remaining_sprite_indexes_by_type[type].delete(new_sprite_index)
       skill["Sprite"] = new_sprite_index
       skill.write_to_rom()
       
@@ -74,11 +91,11 @@ module SkillSpriteRandomizer
       old_is_weapon_glyph_sprite = weapon_glyph_sprite_indexes.include?(old_sprite_index)
       new_is_weapon_glyph_sprite = weapon_glyph_sprite_indexes.include?(new_sprite_index)
       
-      fix_skill_or_enemy_sprite(new_sprite, old_sprite, new_is_weapon_glyph_sprite, old_is_weapon_glyph_sprite)
+      fix_skill_sprite(new_sprite, old_sprite, new_is_weapon_glyph_sprite, old_is_weapon_glyph_sprite)
     end
   end
   
-  def fix_skill_or_enemy_sprite(sprite, old_sprite, new_is_weapon_glyph_sprite, old_is_weapon_glyph_sprite)
+  def fix_skill_sprite(sprite, old_sprite, new_is_weapon_glyph_sprite, old_is_weapon_glyph_sprite)
     any_changes_made_to_this_sprite = false
     
     # Fix OoE weapon glyphs being stuck on your feet when they get a non-weapon glyph sprite.
@@ -196,7 +213,7 @@ module SkillSpriteRandomizer
     end
     
     # Pad every existing animation with duplicate keyframes to get it up to the same number of keyframes the original sprite had for this animation. (Assuming we can do so without affecting the actual time the animation takes to play out.)
-    # The reason we need to make the animation have a lot of keyframes is to to fix the issue of some skills/enemies not advancing until a certain keyframe index is reached (e.g. Vol Arcus doesn't fire until keyframe 0xD is reached).
+    # The reason we need to make the animation have a lot of keyframes is to to fix the issue of some skills not advancing until a certain keyframe index is reached (e.g. Vol Arcus doesn't fire until keyframe 0xD is reached).
     # So instead of having one keyframe that lasts for a certain number of frames, we have a bunch of keyframes that only last for 1 frame each.
     sprite.animations.each_with_index do |animation, anim_index|
       if anim_index >= old_sprite.animations.length

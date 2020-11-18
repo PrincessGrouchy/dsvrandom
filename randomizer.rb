@@ -91,6 +91,7 @@ class Randomizer
     end
     if options[:randomize_world_map_exits]
       # World map exits can be buggy if you start in an area that isn't unlocked.
+      # Also, it depends on knowing the starting room ahead of time in order for the logic to be correct.
       options[:randomize_starting_room] = false
     end
     
@@ -103,13 +104,13 @@ class Randomizer
     @int_seed = Digest::MD5.hexdigest(seed).to_i(16)
     @rng = Random.new(@int_seed)
     
-    @progression_fill_mode = :assumed
-    @assumed_fill_mode_max_redos = 3000
+    @progression_fill_mode = :random
+    @random_fill_mode_max_redos = 15000
     @weak_enemy_attack_threshold = 28
     @max_spawners_per_room = 1
     @max_room_rando_subsector_redos = 20
     @max_map_rando_sector_redos = 40
-    @max_map_rando_area_redos = 5
+    @max_map_rando_area_redos = 7
     
     @difficulty_settings = {}
     DIFFICULTY_RANGES.each do |name, range|
@@ -571,6 +572,21 @@ class Randomizer
       end
       @starting_room_door_index = 0
       
+      if GAME == "ooe"
+        # Add a warp to the Ecclesia save room so you can immediately warp when magical ticketing back there.
+        room = game.areas[2].sectors[0].rooms[5]
+        add_save_or_warp_to_room(room, :warp)
+        
+        map = game.get_map(2, 0)
+        if room_rando?
+          regenerate_map_por_ooe(map, room.area, should_recenter_map: false)
+        else
+          tile = map.tiles.find{|t| t.x_pos == room.x_pos && t.y_pos == room.y_pos}
+          tile.is_warp = true
+          map.write_to_rom(allow_changing_num_tiles: false)
+        end
+      end
+      
       case GAME
       when "dos"
         @starting_x_pos = 0x200 - 0x10
@@ -653,23 +669,22 @@ class Randomizer
       end
     when "por"
       # Always start with Lizard Tail, Call Cube, Skill Cube, Critical Art, and possibly Change Cube.
-      # Always start the player with Lizard Tail.
-      add_bonus_item_to_starting_room(0x1B2) # Lizard Tail
-      checker.add_item(0x1B2) # Lizard Tail
-      
-      add_bonus_item_to_starting_room(0x1AD) # Call Cube
-      checker.add_item(0x1AD) # Call Cube
-      
-      add_bonus_item_to_starting_room(0x1AE) # Skill Cube
-      checker.add_item(0x1AE) # Skill Cube
-      
-      if options[:dont_randomize_change_cube]
+      if options[:start_with_change_cube]
         add_bonus_item_to_starting_room(0x1AC) # Change Cube
         checker.add_item(0x1AC) # Change Cube
       end
       
+      add_bonus_item_to_starting_room(0x1AD) # Call Cube
+      checker.add_item(0x1AD) # Call Cube
+      
+      add_bonus_item_to_starting_room(0x1B2) # Lizard Tail
+      checker.add_item(0x1B2) # Lizard Tail
+      
+      add_bonus_item_to_starting_room(0x1AE) # Skill Cube
+      checker.add_item(0x1AE) # Skill Cube
+      
       add_bonus_item_to_starting_room(0x1B8) # Critical Art
-      checker.add_item(0x1B8)
+      checker.add_item(0x1B8) # Critical Art
     when "ooe"
       if options[:randomize_starting_room]
         # Put the glyph Barlowe would normally give you at the start in the randomized starting room.
